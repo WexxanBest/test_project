@@ -3,15 +3,18 @@ import os
 from multiprocessing import Process, current_process
 import hashlib
 from datetime import datetime
-import winsound
+#import winsound
 import json
 
 
 def thread_delegator(packets: list, default_threads=6):
-    try:
-        threads = int(input('Введи кол-во потоков (по умолчанию 6): '))
-    except:
-        threads = default_threads
+    if 'threads' in config and config['threads']:
+        threads = config['threads']
+    else:
+        try:
+            threads = int(input('Введи кол-во потоков (по умолчанию 6): '))
+        except:
+            threads = default_threads
 
     print('\n<DELEGATOR>')
     delegated_packets = []
@@ -174,6 +177,16 @@ def start_multiprocessing(function, deligator_data: dict, phrase, extra_function
     print('</MULTIPROCESSING>')
 
 
+def load_config_file():
+    try:
+        file = open('config.json', 'r')
+        config = json.load(file)
+    except:
+        config = {}
+
+    return config
+
+
 def load_data():
     for i in range(10):
         try:
@@ -195,8 +208,7 @@ def load_data():
 
 
 if __name__ == '__main__':
-    possible_keys = list(range((2 ** 32 - 2 ** 22), 2 ** 32 + 1))
-    key_progress = [4290772992, 4290814935, 4290856878, 4290898821, 4290940764, 4290982707, 4291024650, 4291066593, 4291108536, 4291150479, 4291192422, 4291234365, 4291276308, 4291318251, 4291360194, 4291402137, 4291444080, 4291486023, 4291527966, 4291569909, 4291611852, 4291653795, 4291695738, 4291737681, 4291779624, 4291821567, 4291863510, 4291905453, 4291947396, 4291989339, 4292031282, 4292073225, 4292115168, 4292157111, 4292199054, 4292240997, 4292282940, 4292324883, 4292366826, 4292408769, 4292450712, 4292492655, 4292534598, 4292576541, 4292618484, 4292660427, 4292702370, 4292744313, 4292786256, 4292828199, 4292870142, 4292912085, 4292954028, 4292995971, 4293037914, 4293079857, 4293121800, 4293163743, 4293205686, 4293247629, 4293289572, 4293331515, 4293373458, 4293415401, 4293457344, 4293499287, 4293541230, 4293583173, 4293625116, 4293667059, 4293709002, 4293750945, 4293792888, 4293834831, 4293876774, 4293918717, 4293960660, 4294002603, 4294044546, 4294086489, 4294128432, 4294170375, 4294212318, 4294254261, 4294296204, 4294338147, 4294380090, 4294422033, 4294463976, 4294505919, 4294547862, 4294589805, 4294631748, 4294673691, 4294715634, 4294757577, 4294799520, 4294841463, 4294883406, 4294925349, 4294967296]
+    config = load_config_file()
 
     packets, all_packets, phrase = load_data()
     thread_delegator_data = thread_delegator(packets)
@@ -211,5 +223,5 @@ if __name__ == '__main__':
     else:
         print('Ответ не был найден')
 
-    winsound.MessageBeep()
-    os.system('pause')
+    #winsound.MessageBeep()
+    #os.system('pause')

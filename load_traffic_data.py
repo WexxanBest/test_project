@@ -72,6 +72,16 @@ def load_from_file():
         return False
 
 
+def load_config_file():
+    try:
+        file = open('config.json', 'r')
+        config = json.load(file)
+    except:
+        config = {}
+
+    return config
+
+
 def get_packets_from_traffic_data(traffic_data):
     if isinstance(traffic_data, str):
         traffic_data = organize_traffic_data(traffic_data)
@@ -98,7 +108,10 @@ def clean_workspace():
 
 
 def device_delegator(packets, organized_traffic, default_device_amount=2):
-    devices = input('Введи кол-во устройств, между которыми будут распределены вычисленя: ')
+    if 'devices' in config and config['devices']:
+        devices = config['devices']
+    else:
+        devices = input('Введи кол-во устройств, между которыми будут распределены вычисленя: ')
     try:
         devices = int(devices)
     except:
@@ -128,9 +141,17 @@ def device_delegator(packets, organized_traffic, default_device_amount=2):
 if __name__ == '__main__':
     default_packets_header = [['Ethernet Header', 14], ['IPv4 Header', 20], ['UDP Header', 8]]
 
-    clean_workspace()
-    phrase = input('Введи фразу: ').strip()
-    traffic = input('Введи трафик: ')
+    config = load_config_file()
+    # clean_workspace()
+
+    if 'phrase' in config and config['phrase']:
+        phrase = config['phrase']
+    else:
+        phrase = input('Введи фразу: ').strip()
+    if 'traffic' in config and config['traffic']:
+        traffic = config['traffic']
+    else:
+        traffic = input('Введи трафик: ')
 
     packets, organized_traffic = get_packets_from_traffic_data(traffic)
     device_delegator(packets, organized_traffic)
