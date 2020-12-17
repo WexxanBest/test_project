@@ -8,10 +8,13 @@ import json
 
 
 def thread_delegator(packets: list, default_threads=6):
-    try:
-        threads = int(input('Введи кол-во потоков (по умолчанию 6): '))
-    except:
-        threads = default_threads
+    if 'threads' in config and config['threads']:
+        threads = config['threads']
+    else:
+        try:
+            threads = int(input('Введи кол-во потоков (по умолчанию 6): '))
+        except:
+            threads = default_threads
 
     print('\n<DELEGATOR>')
 
