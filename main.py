@@ -8,52 +8,72 @@ import json
 
 
 def thread_delegator(packets: list, default_threads=6):
-    if 'threads' in config and config['threads']:
-        threads = config['threads']
-    else:
-        try:
-            threads = int(input('Введи кол-во потоков (по умолчанию 6): '))
-        except:
-            threads = default_threads
+    try:
+        threads = int(input('Введи кол-во потоков (по умолчанию 6): '))
+    except:
+        threads = default_threads
 
     print('\n<DELEGATOR>')
+
     delegated_packets = []
-    if len(packets) % threads == 0:
-        print(f'Будет {threads} потоков. {len(packets)//threads} пакетов для каждого потока.')
-        for i in range(0, len(packets), len(packets)//threads):
-            delegated_packets += [packets[i:i+len(packets)//threads]]
+    common_packets_amount = len(packets) // threads
+
+    for _ in range(threads):
+        delegated_packets.append([])
+
+    for i in range(threads):
+        delegated_packets[i] = packets[i*common_packets_amount:i*common_packets_amount+common_packets_amount]
+
+    packets = packets[common_packets_amount*threads:]
+
+    for i in range(len(packets)):
+        delegated_packets[i] += [packets[0]]
+        packets.pop(0)  # delete what was taken
+
+    first_packets = 1
+    for i in range(len(delegated_packets) - 1):
+        if len(delegated_packets[i]) == len(delegated_packets[i + 1]):
+            first_packets += 1
+        else:
+            break
+    if first_packets == len(delegated_packets):
+        print(f'Будет {threads} потоков. По {len(delegated_packets[0])} пакетов для каждого потока')
     else:
-        print(f'Будет {threads} потоков. {len(packets)//threads} пакетов для первых {threads - 1} потоков и '
-               f'{len(packets) - (len(packets)//threads)*threads} для последнего потока')
-        for i in range(0, (len(packets)//threads)*threads, len(packets)//threads):
-            delegated_packets += [packets[i:i+len(packets)//threads]]
-        delegated_packets += [packets[-(len(packets) - (len(packets)//threads)*threads):]]
+        print(f'Будет {threads} потоков. По {len(delegated_packets[0])} пакетов для первых {first_packets} потоков и '
+              f'по {len(delegated_packets[first_packets])} пакетов для последних '
+              f'{len(delegated_packets) - first_packets} потоков')
+
     print('</DELEGATOR>')
     return {'threads': threads, 'packets': delegated_packets}
 
 
-def find_answer(all_packets):
-    try:
-        file = open('success.txt', 'r')
-        line = file.readline()
-        key = int(line.split()[0])
-    except:
-        return False
+def find_answer(all_packets, key=None):
+    if not key:
+        try:
+            file = open('success.txt', 'r')
+            line = file.readline()
+            key = int(line.split()[0])
+        except:
+            return False
+
+    packs = all_packets
+    mac_server = ''
+
+    for packet in packs:
+        data = decode_text(packs[packet]['Data'], key)
+        if data is not None and phrase in data:
+            mac_server = packs[packet]["Ethernet Header"][0:12]
+            break
 
     data = []
     decr_data = []
-    packs = all_packets
-    mac_server = ''
     for packet in packs:
         dec = decode_text(packs[packet]['Data'], key)
-        if dec != None:
-            if dec.isdigit():
-                mac_server = packs[packet]["Ethernet Header"][0:12]
-                #print(mac_server)
+        if dec is not None:
             if packs[packet]["Ethernet Header"][12:24] == mac_server:
                 data.append(dec)
                 decr_data.append(packs[packet])
-    #print(data)
+
     answer = hashlib.sha256("\n".join(data).encode()).hexdigest()
     with open('answer.txt', 'w') as file:
         file.write(str(answer))
@@ -68,7 +88,7 @@ def decode_text(message: str, secret_key, add_symbols=False, m=2038074743):
     for i in range(0, len(message), 8):
         # print(message[i:i+8])
         # print(str(hex((int(message[i:i+8], 16) - int(hex(secret_key), 16)) % int(hex(m), 16))))
-        result += str(hex((int(message[i:i+8], 16) - int(hex(secret_key), 16)) % int(hex(m), 16)))[2:]
+        result += str(hex((int(message[i:i + 8], 16) - int(hex(secret_key), 16)) % int(hex(m), 16)))[2:]
 
     # print('Decoding steps:')
     if len(result) % 8 and add_symbols:
@@ -76,8 +96,8 @@ def decode_text(message: str, secret_key, add_symbols=False, m=2038074743):
     # print('0)', message)
     try:
         # print('1)', end=' ')
-        #for i in range(0, len(result), 8):
-            # print(result[i:i + 8], end=' ')
+        # for i in range(0, len(result), 8):
+        # print(result[i:i + 8], end=' ')
         # print('')
 
         result = bytes.fromhex(result)
@@ -135,11 +155,14 @@ def define_key(packets, phrase):
             file.write(f'{key} {packet} {result}')
 
     for key in possible_keys:
-        if key in key_progress:
-            key_progress_index = key_progress.index(key)
-            print(current_process().name, f'перебрал {key_progress_index * 41943} ключей ({key_progress_index} %). Текущий: {key}')
         if check_answer():
             return
+
+        if key in key_progress:
+            key_progress_index = key_progress.index(key)
+            print(current_process().name,
+                  f'перебрал {key_progress_index * 41943} ключей ({key_progress_index} %). Текущий: {key}')
+
         for i, packet in enumerate(packets):
             res = decode_text(packet, key)
             if res and phrase in res:
@@ -165,7 +188,7 @@ def start_multiprocessing(function, deligator_data: dict, phrase, extra_function
         process.start()
         print(f'Поток {i} запущен.')
 
-   # print(processes)
+    # print(processes)
 
     for i, proc in enumerate(processes):
         proc.join()
@@ -221,4 +244,4 @@ if __name__ == '__main__':
         print('Ответ не был найден')
 
     #winsound.MessageBeep()
-    os.system('pause')
+    #os.system('pause')
