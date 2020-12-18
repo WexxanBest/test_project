@@ -1,6 +1,7 @@
 import base64
 import os
 from multiprocessing import Process, current_process
+import multiprocessing
 import hashlib
 from datetime import datetime
 #import winsound
@@ -65,7 +66,8 @@ def find_answer(all_packets, key=None):
     for packet in packs:
         data = decode_text(packs[packet]['Data'], key)
         if data is not None and phrase in data:
-            mac_server = packs[packet]["Ethernet Header"][0:12]
+            mac_server = packs[packet]['Destination MAC Address']
+            mac_client = packs[packet]['Source MAC Address']
             break
 
     data = []
@@ -73,7 +75,7 @@ def find_answer(all_packets, key=None):
     for packet in packs:
         dec = decode_text(packs[packet]['Data'], key)
         if dec is not None:
-            if packs[packet]["Ethernet Header"][12:24] == mac_server:
+            if packs[packet]["Source MAC Address"] == mac_server and packs[packet]['Destination MAC Address'] == mac_client:
                 data.append(dec)
                 decr_data.append(packs[packet])
 
@@ -128,15 +130,20 @@ def decode_text(message: str, secret_key, add_symbols=False, m=2038074743):
 
 
 def check_answer():
-    try:
-        file = open('success.txt', 'r')
-        file.close()
+    while not answer_exist():
+        pass
+    return
+
+
+def answer_exist():
+    folder = os.listdir()
+    if 'success.txt' in folder:
         return True
-    except IOError:
+    else:
         return False
 
 
-def define_key(packets, phrase):
+def define_key(packets, phrase, reverse=False, check_answer_=False):
     key_progress = [4290772992, 4290814935, 4290856878, 4290898821, 4290940764, 4290982707, 4291024650, 4291066593,
                     4291108536, 4291150479, 4291192422, 4291234365, 4291276308, 4291318251, 4291360194, 4291402137,
                     4291444080, 4291486023, 4291527966, 4291569909, 4291611852, 4291653795, 4291695738, 4291737681,
@@ -153,13 +160,18 @@ def define_key(packets, phrase):
 
     possible_keys = list(range((2 ** 32 - 2 ** 22), 2 ** 32 + 1))
 
+    if reverse:
+        possible_keys.reverse()
+        key_progress.reverse()
+
     def write_key(key, packet, result):
         with open('success.txt', 'w') as file:
             file.write(f'{key} {packet} {result}')
 
     for key in possible_keys:
-        if check_answer():
-            return
+        if check_answer_:
+            if answer_exist():
+                 return
 
         if key in key_progress:
             key_progress_index = key_progress.index(key)
@@ -174,7 +186,7 @@ def define_key(packets, phrase):
                 return
 
 
-def start_multiprocessing(function, deligator_data: dict, phrase, extra_function_args=(), extra_info=''):
+def start_multiprocessing(function, deligator_data: dict, phrase, extra_function_args=(), extra_info='', checker_in_separate_thread=True, reverse_brute_force=False):
     if extra_info:
         print(f'\n<MULTIPROCESSING> ({extra_info})')
     else:
@@ -186,16 +198,27 @@ def start_multiprocessing(function, deligator_data: dict, phrase, extra_function
     print('Запускаю потоки...')
     processes = []
     for i in range(threads):
-        process = Process(target=function, args=(packets[i], phrase) + extra_function_args, name=f'Поток {i}')
+        process = Process(target=function, args=(packets[i], phrase) + extra_function_args,
+                          name=f'Поток {i}', kwargs={'reverse': reverse_brute_force, 'check_answer_': not checker_in_separate_thread})
         processes.append(process)
         process.start()
-        print(f'Поток {i} запущен.')
+        print(process.name, 'запущен!')
 
-    # print(processes)
+    if checker_in_separate_thread:
+        checker = Process(target=check_answer, name='Checker')
+        checker.start()
+        print('Детектор ответа запущен в отдельном потоке!')
+
+        checker.join()
+        print(checker.name, 'завершен')
+        for proc in processes:
+            proc.terminate()
+    else:
+        print('Проверка ответа будет осуществляться потоками')
 
     for i, proc in enumerate(processes):
         proc.join()
-        print(f'Поток {i} завершен')
+        print(proc.name, 'завершен')
 
     print('</MULTIPROCESSING>')
 
@@ -233,11 +256,25 @@ def load_data():
 if __name__ == '__main__':
     config = load_config_file()
 
+    if 'script' in config and config['script'] == 'main':
+        reverse_brute_force = False
+    else:
+        reverse_brute_force = True
+    print('Реверс:', reverse_brute_force)
+
+    if 'checker_in_separate_thread' in config and config['checker_in_separate_thread']:
+        checker_in_separate_thread = True
+    elif 'checker_in_separate_thread' in config:
+        checker_in_separate_thread = False
+    else:
+        checker_in_separate_thread = True
+    print('Детектор в отдельном потоке:', checker_in_separate_thread)
+
     packets, all_packets, phrase = load_data()
     thread_delegator_data = thread_delegator(packets)
 
     start_time = datetime.now()
-    start_multiprocessing(define_key, thread_delegator_data, phrase, extra_info=f'Начало в {datetime.now()}')
+    start_multiprocessing(define_key, thread_delegator_data, phrase, extra_info=f'Начало в {datetime.now()}', reverse_brute_force=reverse_brute_force, checker_in_separate_thread=checker_in_separate_thread)
     print('Поиск занял:', datetime.now() - start_time)
 
     answer = find_answer(all_packets)

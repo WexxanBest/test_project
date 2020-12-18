@@ -15,13 +15,23 @@ if __name__ == '__main__':
         config['threads'] = None
 
     try:
-        script = input('Какой скрипт запускать? (Напиши цифру):\n[0] main.py\n[1] main_reverse.py\nВвод: ')
+        script = input('Какой скрипт запускать? (Напиши цифру):\n[0] main (по умолчанию)\n[1] reverse\nВвод: ')
         if script != '1':
             config['script'] = 'main'
         else:
             config['script'] = 'reverse'
     except:
         config['script'] = 'main'
+
+    try:
+        script = input('Как запускать детектор ошибок? (Напиши цифру):\n[0] В отдельном потоке '
+                       '(по умолчанию)\n[1] В каждом потоке\nВвод: ')
+        if script != '1':
+            config['checker_in_separate_thread'] = True
+        else:
+            config['checker_in_separate_thread'] = False
+    except:
+        config['script'] = True
 
     with open('config.json', 'w') as file:
         json.dump(config, file)

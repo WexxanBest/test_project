@@ -1,7 +1,7 @@
 import json, os
 
 
-def organize_traffic_data(traffic: str, global_header_length=24, packet_header_length=16, packet_headers=None, use_cache=True, write_cache=True):
+def organize_traffic_data(traffic: str, global_header_length=24, packet_header_length=16, packet_headers=None, use_cache=False, write_cache=False):
     print('\n<DATA ORGANIZING>')
     if use_cache:
         print('Checking if there is cached data...')
@@ -47,9 +47,12 @@ def organize_traffic_data(traffic: str, global_header_length=24, packet_header_l
         data = data[packet_length - headers_length:]
         packet['Data'] = packet_data
 
+        packet['Destination MAC Address'] = packet['Ethernet Header'][0:12]
+        packet['Source MAC Address'] = packet['Ethernet Header'][12:24]
+
         traffic_dict['packets'][len(traffic_dict['packets'])] = packet
 
-    print('Organizing finished!')
+    print('Organizing finished!', len(traffic_dict['packets']), 'packets were found')
     if write_cache:
         print('Saving traffic data...')
         safe_to_file(traffic_dict)
@@ -119,16 +122,32 @@ def device_delegator(packets, organized_traffic, default_device_amount=2):
 
     print('\n<DEVICE DELEGATOR>')
     delegated_packets = []
-    if len(packets) % devices == 0:
-        print(f'Будет {devices} устройства. По {len(packets)//devices} пакетов для каждого устройства.')
-        for i in range(0, len(packets), len(packets)//devices):
-            delegated_packets += [packets[i:i+len(packets)//devices]]
+    common_packets_amount = len(packets) // devices
+
+    for _ in range(devices):
+        delegated_packets.append([])
+
+    for i in range(devices):
+        delegated_packets[i] = packets[i * common_packets_amount:i * common_packets_amount + common_packets_amount]
+
+    packets = packets[common_packets_amount * devices:]
+
+    for i in range(len(packets)):
+        delegated_packets[i] += [packets[0]]
+        packets.pop(0)  # delete what was taken
+
+    first_packets = 1
+    for i in range(len(delegated_packets) - 1):
+        if len(delegated_packets[i]) == len(delegated_packets[i + 1]):
+            first_packets += 1
+        else:
+            break
+    if first_packets == len(delegated_packets):
+        print(f'Будет {devices} устройств. По {len(delegated_packets[0])} пакетов для каждого устройства')
     else:
-        print(f'Будет {devices} устройства. По {len(packets)//devices} пакетов для первых {devices - 1} устройств и '
-               f'{len(packets) - (len(packets)//devices)*devices} для последнего устройства')
-        for i in range(0, (len(packets)//devices)*devices, len(packets)//devices):
-            delegated_packets += [packets[i:i+len(packets)//devices]]
-        delegated_packets += [packets[-(len(packets) - (len(packets)//devices)*devices):]]
+        print(f'Будет {devices} устройств. По {len(delegated_packets[0])} пакетов для первых {first_packets} устройств '
+              f'и по {len(delegated_packets[first_packets])} пакетов для последних '
+              f'{len(delegated_packets) - first_packets} устройств')
 
     for device_index in range(devices):
         with open(f'packets{device_index}.json', 'w') as file:

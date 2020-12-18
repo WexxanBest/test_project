@@ -62,7 +62,7 @@ if __name__ == '__main__':
         else:
             os.system('python main_reverse.py')
     else:
-        script = input('Какой скрипт запускать? (Напиши цифру):\n[0] main.py\n[1] main_reverse.py\nВвод: ')
+        script = input('Какой скрипт запускать? (Напиши цифру):\n[0] main\n[1] reverse\nВвод: ')
         if script != '1':
             os.system('python main.py')
         else:
