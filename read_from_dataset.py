@@ -56,14 +56,4 @@ if __name__ == '__main__':
 
     os.system('python load_traffic_data.py')
 
-    if 'script' in config and config['script']:
-        if config['script'] == 'main':
-            os.system('python main.py')
-        else:
-            os.system('python main_reverse.py')
-    else:
-        script = input('Какой скрипт запускать? (Напиши цифру):\n[0] main\n[1] reverse\nВвод: ')
-        if script != '1':
-            os.system('python main.py')
-        else:
-            os.system('python main_reverse.py')
+    os.system('python main.py')
